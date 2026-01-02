@@ -1,0 +1,10 @@
+{
+  "name": "auto-claude",
+  "description": "Auto-Claude Framework - Autonomous multi-agent coding. List specs, run builds, merge worktrees, QA validation.",
+  "transport": "stdio",
+  "command": "/Users/benjaminwesleythomas/GitProjects/MacMini/mcp-servers/auto-claude-mcp/.venv/bin/python",
+  "args": ["/Users/benjaminwesleythomas/GitProjects/MacMini/mcp-servers/auto-claude-mcp/server.py"],
+  "env": {
+    "AUTO_CLAUDE_BACKEND": "/Users/benjaminwesleythomas/GitProjects/Auto-Claude/apps/backend"
+  }
+}

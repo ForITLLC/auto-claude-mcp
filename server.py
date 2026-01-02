@@ -26,7 +26,7 @@ AUTO_CLAUDE_BACKEND = Path(os.environ.get(
 server = Server("auto-claude-mcp")
 
 
-def run_auto_claude_command(args: list[str], project_dir: str | None = None) -> dict[str, Any]:
+def run_auto_claude_command(args: list[str], project_dir: str | None = None, auto_accept: bool = False) -> dict[str, Any]:
     """Run an Auto-Claude CLI command and return the result."""
     # Use Auto-Claude's own venv Python, not the MCP server's Python
     auto_claude_python = AUTO_CLAUDE_BACKEND / ".venv" / "bin" / "python"
@@ -39,14 +39,28 @@ def run_auto_claude_command(args: list[str], project_dir: str | None = None) -> 
         env["PWD"] = project_dir
 
     try:
-        result = subprocess.run(
-            cmd,
-            cwd=project_dir or os.getcwd(),
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minute timeout
-            env=env
-        )
+        if auto_accept:
+            # Use printf to send "1\n" repeatedly (continue/accept prompts)
+            # Then fall through to empty lines for any remaining prompts
+            full_cmd = f'(for i in {{1..20}}; do echo 1; done; yes "") | {" ".join(cmd)}'
+            result = subprocess.run(
+                full_cmd,
+                shell=True,
+                cwd=project_dir or os.getcwd(),
+                capture_output=True,
+                text=True,
+                timeout=1800,  # 30 minute timeout for builds
+                env=env
+            )
+        else:
+            result = subprocess.run(
+                cmd,
+                cwd=project_dir or os.getcwd(),
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+                env=env
+            )
         return {
             "success": result.returncode == 0,
             "stdout": result.stdout,
@@ -56,7 +70,7 @@ def run_auto_claude_command(args: list[str], project_dir: str | None = None) -> 
     except subprocess.TimeoutExpired:
         return {
             "success": False,
-            "error": "Command timed out after 5 minutes",
+            "error": "Command timed out (build may still be running in background)",
             "stdout": "",
             "stderr": ""
         }
@@ -352,7 +366,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         result = run_auto_claude_command(args, project_dir)
 
     elif name == "run_build":
-        args = ["--spec", spec, "--auto-continue"]
+        args = ["--spec", spec, "--auto-continue", "--force"]
         if arguments.get("model"):
             args.extend(["--model", arguments["model"]])
         if arguments.get("isolated"):
@@ -361,7 +375,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             args.append("--direct")
         if arguments.get("skip_qa"):
             args.append("--skip-qa")
-        result = run_auto_claude_command(args, project_dir)
+        # Pipe stdin to auto-accept prompts
+        result = run_auto_claude_command(args, project_dir, auto_accept=True)
 
     elif name == "run_qa":
         args = ["--spec", spec, "--qa"]
