@@ -28,7 +28,11 @@ server = Server("auto-claude-mcp")
 
 def run_auto_claude_command(args: list[str], project_dir: str | None = None) -> dict[str, Any]:
     """Run an Auto-Claude CLI command and return the result."""
-    cmd = [sys.executable, str(AUTO_CLAUDE_BACKEND / "run.py")] + args
+    # Use Auto-Claude's own venv Python, not the MCP server's Python
+    auto_claude_python = AUTO_CLAUDE_BACKEND / ".venv" / "bin" / "python"
+    if not auto_claude_python.exists():
+        auto_claude_python = Path(sys.executable)  # Fallback to system Python
+    cmd = [str(auto_claude_python), str(AUTO_CLAUDE_BACKEND / "run.py")] + args
 
     env = os.environ.copy()
     if project_dir:
